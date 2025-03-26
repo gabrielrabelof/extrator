@@ -1,16 +1,19 @@
 
 import React, { useState, useRef } from 'react';
 import { PDFDocument } from 'pdf-lib';
-import { Scissors, Download, Eye, FileText, Upload, ChevronUp, ChevronDown } from 'lucide-react';
+import { Scissors, Download, Eye, FileText, Upload, ChevronUp, ChevronDown, FilePresentation } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Slider } from '@/components/ui/slider';
 import { toast } from 'sonner';
 import { Separator } from '@/components/ui/separator';
 import PDFViewer from './PDFViewer';
+import pptxgen from 'pptxgenjs';
+import { convertPptxToPdf } from '@/utils/pptxUtils';
 
 const PDFSlicer = () => {
-  const [pdfName, setPdfName] = useState<string>('');
+  const [fileName, setFileName] = useState<string>('');
+  const [fileType, setFileType] = useState<'pdf' | 'pptx'>('pdf');
   const [pdfBytes, setPdfBytes] = useState<ArrayBuffer | null>(null);
   const [pageCount, setPageCount] = useState<number>(0);
   const [pageRange, setPageRange] = useState<[number, number]>([1, 1]);
@@ -28,11 +31,22 @@ const PDFSlicer = () => {
 
     setIsLoading(true);
     try {
-      await loadPDF(file);
-      toast.success('PDF carregado com sucesso!');
+      const fileExt = file.name.split('.').pop()?.toLowerCase();
+      
+      if (fileExt === 'pdf') {
+        setFileType('pdf');
+        await loadPDF(file);
+      } else if (fileExt === 'pptx') {
+        setFileType('pptx');
+        await loadPPTX(file);
+      } else {
+        throw new Error('Formato de arquivo não suportado. Por favor, use PDF ou PPTX.');
+      }
+      
+      toast.success('Arquivo carregado com sucesso!');
     } catch (error) {
-      console.error('Error loading PDF:', error);
-      toast.error('Erro ao carregar o PDF. Verifique se o arquivo é válido.');
+      console.error('Error loading file:', error);
+      toast.error(error instanceof Error ? error.message : 'Erro ao carregar o arquivo. Verifique se o arquivo é válido.');
     } finally {
       setIsLoading(false);
     }
@@ -47,7 +61,7 @@ const PDFSlicer = () => {
           const arrayBuffer = e.target?.result as ArrayBuffer;
           const pdfDoc = await PDFDocument.load(arrayBuffer);
           
-          setPdfName(file.name);
+          setFileName(file.name);
           setPdfBytes(arrayBuffer);
           const count = pdfDoc.getPageCount();
           setPageCount(count);
@@ -64,7 +78,44 @@ const PDFSlicer = () => {
         }
       };
       
-      reader.onerror = () => reject(new Error('Failed to read file'));
+      reader.onerror = () => reject(new Error('Falha ao ler o arquivo PDF'));
+      reader.readAsArrayBuffer(file);
+    });
+  };
+
+  const loadPPTX = async (file: File) => {
+    const reader = new FileReader();
+    
+    return new Promise<void>((resolve, reject) => {
+      reader.onload = async (e) => {
+        try {
+          setIsLoading(true);
+          const arrayBuffer = e.target?.result as ArrayBuffer;
+          
+          // Converter PPTX para PDF
+          const pdfBytes = await convertPptxToPdf(arrayBuffer);
+          
+          // Carregar o PDF gerado
+          const pdfDoc = await PDFDocument.load(pdfBytes);
+          
+          setFileName(file.name);
+          setPdfBytes(pdfBytes);
+          const count = pdfDoc.getPageCount();
+          setPageCount(count);
+          setPageRange([1, count > 1 ? Math.floor(count / 2) : 1]);
+          
+          // Reset generated PDFs
+          setContentPdfUrl(null);
+          setQuestionsPdfUrl(null);
+          setActivePreview(null);
+          
+          resolve();
+        } catch (error) {
+          reject(new Error('Falha ao processar o arquivo PPTX. ' + (error instanceof Error ? error.message : '')));
+        }
+      };
+      
+      reader.onerror = () => reject(new Error('Falha ao ler o arquivo PPTX'));
       reader.readAsArrayBuffer(file);
     });
   };
@@ -74,18 +125,27 @@ const PDFSlicer = () => {
     setIsDragging(false);
     
     const file = e.dataTransfer.files[0];
-    if (!file || !file.type.includes('pdf')) {
-      toast.error('Por favor, carregue apenas arquivos PDF.');
+    if (!file) return;
+    
+    const fileExt = file.name.split('.').pop()?.toLowerCase();
+    if (fileExt !== 'pdf' && fileExt !== 'pptx') {
+      toast.error('Por favor, carregue apenas arquivos PDF ou PPTX.');
       return;
     }
     
     setIsLoading(true);
     try {
-      await loadPDF(file);
-      toast.success('PDF carregado com sucesso!');
+      if (fileExt === 'pdf') {
+        setFileType('pdf');
+        await loadPDF(file);
+      } else if (fileExt === 'pptx') {
+        setFileType('pptx');
+        await loadPPTX(file);
+      }
+      toast.success('Arquivo carregado com sucesso!');
     } catch (error) {
-      console.error('Error loading PDF:', error);
-      toast.error('Erro ao carregar o PDF. Verifique se o arquivo é válido.');
+      console.error('Error loading file:', error);
+      toast.error(error instanceof Error ? error.message : 'Erro ao carregar o arquivo. Verifique se o arquivo é válido.');
     } finally {
       setIsLoading(false);
     }
@@ -93,7 +153,7 @@ const PDFSlicer = () => {
 
   const handleSliceClick = async () => {
     if (!pdfBytes) {
-      toast.error('Por favor, carregue um PDF primeiro.');
+      toast.error('Por favor, carregue um arquivo primeiro.');
       return;
     }
 
@@ -146,7 +206,7 @@ const PDFSlicer = () => {
     const link = document.createElement('a');
     link.href = url;
     
-    const baseName = pdfName.replace(/\.pdf$/i, '');
+    const baseName = fileName.replace(/\.(pdf|pptx)$/i, '');
     const fileName = type === 'content' 
       ? `Conteúdo - ${baseName}.pdf` 
       : `Perguntas - ${baseName}.pdf`;
@@ -165,7 +225,8 @@ const PDFSlicer = () => {
     }
   };
 
-  const fileNameWithoutExt = pdfName.replace(/\.pdf$/i, '');
+  const fileNameWithoutExt = fileName.replace(/\.(pdf|pptx)$/i, '');
+  const fileIcon = fileType === 'pdf' ? <FileText size={20} className="text-primary" /> : <FilePresentation size={20} className="text-primary" />;
 
   return (
     <div className="flex flex-col space-y-8 w-full max-w-4xl mx-auto animate-fade-in">
@@ -183,7 +244,7 @@ const PDFSlicer = () => {
         <input
           type="file"
           ref={fileInputRef}
-          accept=".pdf"
+          accept=".pdf,.pptx"
           onChange={handleFileChange}
           className="hidden"
         />
@@ -193,9 +254,9 @@ const PDFSlicer = () => {
             <Upload size={24} className="text-primary" />
           </div>
           <div>
-            <h3 className="text-lg font-medium">Selecione um arquivo PDF</h3>
+            <h3 className="text-lg font-medium">Selecione um arquivo</h3>
             <p className="text-muted-foreground text-sm mt-1">
-              Arraste e solte seu arquivo aqui ou
+              Arraste e solte seu arquivo PDF ou PPTX aqui ou
             </p>
           </div>
           <Button
@@ -216,10 +277,10 @@ const PDFSlicer = () => {
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-3">
                   <div className="p-2 rounded-md bg-primary/10">
-                    <FileText size={20} className="text-primary" />
+                    {fileIcon}
                   </div>
                   <div>
-                    <h3 className="font-medium">{pdfName}</h3>
+                    <h3 className="font-medium">{fileName}</h3>
                     <p className="text-xs text-muted-foreground">{pageCount} páginas</p>
                   </div>
                 </div>
@@ -253,7 +314,7 @@ const PDFSlicer = () => {
                     className="flex items-center space-x-2"
                   >
                     <Scissors size={16} />
-                    <span>Recortar PDF</span>
+                    <span>Recortar Arquivo</span>
                   </Button>
                 </div>
               </div>
