@@ -1,7 +1,7 @@
 
 import React, { useState, useRef } from 'react';
 import { PDFDocument } from 'pdf-lib';
-import { Scissors, Download, Eye, FileText, Upload, ChevronUp, ChevronDown, FilePresentation } from 'lucide-react';
+import { Scissors, Download, Eye, FileText, Upload, ChevronUp, ChevronDown, Presentation } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Slider } from '@/components/ui/slider';
@@ -226,7 +226,7 @@ const PDFSlicer = () => {
   };
 
   const fileNameWithoutExt = fileName.replace(/\.(pdf|pptx)$/i, '');
-  const fileIcon = fileType === 'pdf' ? <FileText size={20} className="text-primary" /> : <FilePresentation size={20} className="text-primary" />;
+  const fileIcon = fileType === 'pdf' ? <FileText size={20} className="text-primary" /> : <Presentation size={20} className="text-primary" />;
 
   return (
     <div className="flex flex-col space-y-8 w-full max-w-4xl mx-auto animate-fade-in">
