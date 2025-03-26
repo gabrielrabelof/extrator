@@ -207,11 +207,11 @@ const PDFSlicer = () => {
     link.href = url;
     
     const baseName = fileName.replace(/\.(pdf|pptx)$/i, '');
-    const fileName = type === 'content' 
+    const downloadFileName = type === 'content' 
       ? `Conteúdo - ${baseName}.pdf` 
       : `Perguntas - ${baseName}.pdf`;
       
-    link.download = fileName;
+    link.download = downloadFileName;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
