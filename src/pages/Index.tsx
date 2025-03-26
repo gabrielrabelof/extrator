@@ -21,9 +21,9 @@ const Index = () => {
       <main className="flex-1 container max-w-7xl mx-auto py-8 px-4 sm:px-6 md:py-12">
         <div className="max-w-4xl mx-auto">
           <div className="space-y-2 text-center mb-10 animate-fade-up">
-            <h2 className="text-3xl font-bold tracking-tight">Fatie seus arquivos PDF e PPTX</h2>
+            <h2 className="text-3xl font-bold tracking-tight">Fatie seus arquivos PDF</h2>
             <p className="text-muted-foreground">
-              Selecione um PDF ou PPTX, defina um intervalo de páginas e gere dois novos PDFs: um com o conteúdo selecionado e outro com as perguntas.
+              Selecione um PDF, defina um intervalo de páginas e gere dois novos PDFs: um com o conteúdo selecionado e outro com as perguntas.
             </p>
           </div>
           
