@@ -28,8 +28,21 @@ const PDFSlicer = () => {
   const [isDragging, setIsDragging] = useState<boolean>(false);
   const [fileType, setFileType] = useState<"pdf" | "pptx" | "ppt">("pdf");
   const [conversionStatus, setConversionStatus] = useState<string>("");
+  const [currentStep, setCurrentStep] = useState<1 | 2 | 3>(1);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const resetToInitialState = () => {
+    setCurrentStep(1);
+    setPdfName("");
+    setPdfBytes(null);
+    setPageCount(0);
+    setPageRange([1, 1]);
+    setContentPdfUrl(null);
+    setQuestionsPdfUrl(null);
+    setFileType("pdf");
+    toast.success("Processo concluído com sucesso!");
+  };
 
   const convertPPTXtoPDF = async (file: File): Promise<ArrayBuffer> => {
     return new Promise(async (resolve, reject) => {
@@ -216,6 +229,55 @@ const PDFSlicer = () => {
     // Reset generated PDFs
     setContentPdfUrl(null);
     setQuestionsPdfUrl(null);
+
+    // Automatically move to step 2
+    goToNextStep();
+  };
+
+  // Add these functions after the existing state declarations
+  const goToPreviousStep = () => {
+    setCurrentStep((prev) => (prev > 1 ? ((prev - 1) as 1 | 2 | 3) : prev));
+  };
+
+  const goToNextStep = () => {
+    setCurrentStep((prev) => (prev < 3 ? ((prev + 1) as 1 | 2 | 3) : prev));
+  };
+
+  const canGoNext = () => {
+    switch (currentStep) {
+      case 1:
+        return !!pdfBytes;
+      case 2:
+        return true;
+      default:
+        return false;
+    }
+  };
+
+  // Add this component before the main return statement
+  const StepNavigation = () => {
+    return (
+      <div className="flex justify-between mt-6">
+        {currentStep > 1 && (
+          <Button
+            variant="outline"
+            onClick={goToPreviousStep}
+            className="flex items-center space-x-2"
+          >
+            Voltar
+          </Button>
+        )}
+        {currentStep < 3 && (
+          <Button
+            onClick={goToNextStep}
+            disabled={!canGoNext()}
+            className="flex items-center space-x-2 ml-auto"
+          >
+            {"Próximo"}
+          </Button>
+        )}
+      </div>
+    );
   };
 
   // Resto do código mantido igual ao componente original
@@ -327,7 +389,7 @@ const PDFSlicer = () => {
 
       setContentPdfUrl(contentUrl);
       setQuestionsPdfUrl(questionsUrl);
-
+      goToNextStep();
       toast.success("PDFs gerados com sucesso!");
     } catch (error) {
       console.error("Error slicing PDF:", error);
@@ -360,49 +422,100 @@ const PDFSlicer = () => {
 
   const fileNameWithoutExt = pdfName.replace(/\.pdf$/i, "");
 
+  const getStepTitle = (step: number) => {
+    switch (step) {
+      case 1:
+        return "Selecione um arquivo";
+      case 2:
+        return "Selecione o intervalo de páginas";
+      case 3:
+        return "Baixe seus arquivos";
+      default:
+        return "";
+    }
+  };
+
   return (
     <div className="flex flex-col space-y-8 w-full max-w-4xl mx-auto animate-fade-in">
-      <div
-        className={`relative flex flex-col items-center justify-center p-10 border-2 border-dashed rounded-xl transition-all duration-200 ${
-          isDragging ? "border-primary bg-primary/5" : "border-border"
-        } hover:border-primary/50 animate-scale-in`}
-        onDragOver={(e) => {
-          e.preventDefault();
-          setIsDragging(true);
-        }}
-        onDragLeave={() => setIsDragging(false)}
-        onDrop={handleDrop}
-      >
-        <input
-          type="file"
-          ref={fileInputRef}
-          accept=".pdf, .ppt, .pptx"
-          onChange={handleFileChange}
-          className="hidden"
-        />
-
-        <div className="flex flex-col items-center justify-center text-center space-y-4">
-          <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center">
-            <Upload size={24} className="text-primary" />
-          </div>
-          <div>
-            <h3 className="text-lg font-medium">Selecione um arquivo</h3>
-            <p className="text-muted-foreground text-sm mt-1">
-              Arraste e solte seu arquivo aqui ou
-            </p>
-          </div>
-          <Button
-            onClick={() => fileInputRef.current?.click()}
-            variant="outline"
-            className="mt-2"
-            disabled={isLoading}
-          >
-            Selecionar Arquivo
-          </Button>
+      <div className="flex justify-between items-center mb-6">
+        <h2 className="text-2xl font-semibold">{getStepTitle(currentStep)}</h2>
+        <div className="flex items-center gap-2">
+          {[1, 2, 3].map((step) => (
+            <div
+              key={step}
+              className={`flex items-center ${step !== 1 && "ml-2"}`}
+            >
+              <div
+                className={`w-8 h-8 rounded-full flex items-center justify-center ${
+                  step === currentStep
+                    ? "bg-primary text-primary-foreground"
+                    : step < currentStep
+                    ? "bg-primary/20 text-primary"
+                    : "bg-muted text-muted-foreground"
+                }`}
+              >
+                {step}
+              </div>
+              {step < 3 && (
+                <div
+                  className={`h-0.5 w-8 mx-2 ${
+                    step < currentStep ? "bg-primary" : "bg-muted"
+                  }`}
+                />
+              )}
+            </div>
+          ))}
         </div>
       </div>
 
-      {pdfBytes && (
+      {/* Only show the upload area in step 1 */}
+      {currentStep === 1 && (
+        <>
+          <div
+            className={`relative flex flex-col items-center justify-center p-10 border-2 border-dashed rounded-xl transition-all duration-200 ${
+              isDragging ? "border-primary bg-primary/5" : "border-border"
+            } hover:border-primary/50 animate-scale-in`}
+            onDragOver={(e) => {
+              e.preventDefault();
+              setIsDragging(true);
+            }}
+            onDragLeave={() => setIsDragging(false)}
+            onDrop={handleDrop}
+          >
+            <input
+              type="file"
+              ref={fileInputRef}
+              accept=".pdf, .ppt, .pptx"
+              onChange={handleFileChange}
+              className="hidden"
+            />
+
+            <div className="flex flex-col items-center justify-center text-center space-y-4">
+              <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center">
+                <Upload size={24} className="text-primary" />
+              </div>
+              <div>
+                <h3 className="text-lg font-medium">Selecione um arquivo</h3>
+                <p className="text-muted-foreground text-sm mt-1">
+                  Arraste e solte seu arquivo aqui ou
+                </p>
+              </div>
+              <Button
+                onClick={() => fileInputRef.current?.click()}
+                variant="outline"
+                className="mt-2"
+                disabled={isLoading}
+              >
+                Selecionar Arquivo
+              </Button>
+            </div>
+          </div>
+          <StepNavigation />
+        </>
+      )}
+
+      {/* Only show the range selection in step 2 */}
+      {currentStep === 2 && pdfBytes && (
         <Card className="w-full border shadow-sm animate-fade-up">
           <CardContent className="pt-6">
             <div className="space-y-6">
@@ -490,58 +603,101 @@ const PDFSlicer = () => {
                     <span>Recortar PDF</span>
                   </Button>
                 </div>
+                <StepNavigation />
               </div>
             </div>
           </CardContent>
         </Card>
       )}
 
-      {contentPdfUrl && questionsPdfUrl && (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-fade-up">
-          <Card className="overflow-hidden card-hover">
-            <CardContent className="p-5">
-              <div className="flex flex-col space-y-4">
-                <div className="flex justify-between items-center">
-                  <h3 className="font-medium">
-                    Conteúdo - {fileNameWithoutExt}
-                  </h3>
-                  <div className="flex items-center space-x-2">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => handleDownload(contentPdfUrl, "content")}
-                    >
-                      <Download size={18} />
-                    </Button>
+      {/* Only show the download cards in step 3 */}
+      {currentStep === 3 && (
+        <>
+          {contentPdfUrl && questionsPdfUrl ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-fade-up">
+              <Card className="overflow-hidden card-hover">
+                <CardContent className="p-5">
+                  <div className="flex flex-col space-y-4">
+                    <div className="flex justify-between items-center">
+                      <h3 className="font-medium">
+                        Conteúdo - {fileNameWithoutExt}
+                      </h3>
+                      <div className="flex items-center space-x-2">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() =>
+                            handleDownload(contentPdfUrl, "content")
+                          }
+                        >
+                          <Download size={18} />
+                        </Button>
+                      </div>
+                    </div>
                   </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+                </CardContent>
+              </Card>
 
-          <Card className="overflow-hidden card-hover">
-            <CardContent className="p-5">
-              <div className="flex flex-col space-y-4">
-                <div className="flex justify-between items-center">
-                  <h3 className="font-medium">
-                    Perguntas - {fileNameWithoutExt}
-                  </h3>
-                  <div className="flex items-center space-x-2">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() =>
-                        handleDownload(questionsPdfUrl, "questions")
-                      }
-                    >
-                      <Download size={18} />
-                    </Button>
+              <Card className="overflow-hidden card-hover">
+                <CardContent className="p-5">
+                  <div className="flex flex-col space-y-4">
+                    <div className="flex justify-between items-center">
+                      <h3 className="font-medium">
+                        Perguntas - {fileNameWithoutExt}
+                      </h3>
+                      <div className="flex items-center space-x-2">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() =>
+                            handleDownload(questionsPdfUrl, "questions")
+                          }
+                        >
+                          <Download size={18} />
+                        </Button>
+                      </div>
+                    </div>
                   </div>
+                </CardContent>
+              </Card>
+            </div>
+          ) : (
+            <div className="flex flex-col items-center justify-center p-10 border-2 border-dashed rounded-xl border-muted-foreground/20 animate-fade-up">
+              <div className="text-center space-y-4">
+                <div className="w-16 h-16 rounded-full bg-muted/50 flex items-center justify-center mx-auto">
+                  <Scissors size={24} className="text-muted-foreground" />
+                </div>
+                <div className="space-y-2">
+                  <h3 className="text-lg font-medium">
+                    Nenhum arquivo recortado
+                  </h3>
+                  <p className="text-sm text-muted-foreground">
+                    Retorne à etapa anterior e recorte o PDF para gerar os
+                    arquivos
+                  </p>
                 </div>
               </div>
-            </CardContent>
-          </Card>
-        </div>
+            </div>
+          )}
+
+          <div className="flex justify-between mt-6">
+            <Button
+              variant="outline"
+              onClick={goToPreviousStep}
+              className="flex items-center space-x-2"
+            >
+              Voltar
+            </Button>
+            {contentPdfUrl && questionsPdfUrl && (
+              <Button
+                onClick={resetToInitialState}
+                className="flex items-center space-x-2"
+              >
+                Concluir
+              </Button>
+            )}
+          </div>
+        </>
       )}
 
       {conversionStatus && (

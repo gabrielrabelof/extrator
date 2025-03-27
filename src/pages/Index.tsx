@@ -1,5 +1,5 @@
 import PDFSlicer from "@/components/PDFSlicer";
-import { Scissors } from "lucide-react";
+import { SeparatorVertical } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 
 const Index = () => {
@@ -9,8 +9,8 @@ const Index = () => {
         <div className="container max-w-7xl mx-auto py-4 px-4 sm:px-6">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-2">
-              <Scissors className="h-5 w-5 text-primary" />
-              <h1 className="text-xl font-medium">PDF Slicer</h1>
+              <SeparatorVertical className="h-5 w-5 text-primary" />
+              <h1 className="text-xl font-medium">Extrator</h1>
             </div>
           </div>
         </div>
@@ -24,8 +24,8 @@ const Index = () => {
             </h2>
             <p className="text-muted-foreground">
               Selecione um arquivo, defina um intervalo de páginas e gere dois
-              novos PDFs: um com o conteúdo selecionado e outro com as
-              perguntas.
+              novos PDFs: Um com o conteúdo selecionado e outro com as perguntas
+              e crie um questionário.
             </p>
           </div>
 
@@ -38,7 +38,7 @@ const Index = () => {
       <footer className="w-full border-t py-6 md:py-0">
         <div className="container flex flex-col md:flex-row items-center justify-between gap-4 text-center md:text-left md:h-16">
           <p className="text-sm text-muted-foreground">
-            &copy; {new Date().getFullYear()} PDF Slicer. Todos os direitos
+            &copy; {new Date().getFullYear()} Extrator. Todos os direitos
             reservados.
           </p>
         </div>
