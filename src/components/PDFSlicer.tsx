@@ -12,6 +12,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Slider } from "@/components/ui/slider";
 import { toast } from "sonner";
 import { Separator } from "@/components/ui/separator";
+import Quiz from "./Quiz";
 
 const API_KEY =
   "eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiJ9.eyJhdWQiOiIxIiwianRpIjoiMDM0OTNiYWU4OTgxZjY2M2U5YmUwZjhhZGFhMmJjZTgwYWYzNzExZDNhZTAwYTMxNGVlNjc4OGI2MWMyYWE0MTYyMGIyZTgyYTNmMjk5ODUiLCJpYXQiOjE3NDMwODA0NDMuNzgyMDE0LCJuYmYiOjE3NDMwODA0NDMuNzgyMDE1LCJleHAiOjQ4OTg3NTQwNDMuNzc3ODExLCJzdWIiOiI3MTQ2MzA0MSIsInNjb3BlcyI6WyJ1c2VyLnJlYWQiLCJ1c2VyLndyaXRlIiwidGFzay5yZWFkIiwidGFzay53cml0ZSIsIndlYmhvb2sucmVhZCIsIndlYmhvb2sud3JpdGUiLCJwcmVzZXQucmVhZCIsInByZXNldC53cml0ZSJdfQ.q9I86Vs-SvkZ-bKqOaaHOYchVF6i2JMl5f6P2MWz_WImqrGApHK7fJlllrqZiZana3YyEC1sukvANw2xT26Zd-PGEHJrKDwISEmO5-fNLUppylgDgrrvRowUyv8OHbMKMbv34WMrIux0z9YS7_AMWERA2IZoYSjPGd6wkRwjLMvQAtHcG_VrFuYgRxCtW47kuvNocvmuVK_jdljqnK79TbNdAl0FQfYEMMNfVKGNXBmBpc0CBIfRm0RbHa84ozBYxb2FRjcngEbBqMMMJzlkfUO7H4bOkR1oagnzQXM6FGjgAHVKFeetzB_MCNTnjVsuV6Rh7xPAJH8ET7vON5grpwJeGwIrv9pZeaQ47QxBxsa9vM6uq4tbt9L8ujzrDSc4jNWMX3j8NQUgAjbP5Tym0yaA5tJ_AfUzqwjUT1gCwG3mvgCsW9fL6iTOH2hvVF7vfwgQjrB0zeK1r3jVqpsQfdRIF6gRVjT53UNA7xjqtIZOmMNCoyX7z1xxirVsq32FpDWBmYzYHimM5GYUoOEqZ2ht88TKCXC8seegg-eUq4FLElFOUsuwK3xShn9ui5uO5g5q7dhG4rsUDJ8cj5G7eJfKkdgmSzJV8NPx7iuIwyijfTBhF01rpALvMCiuVVE9P6f7kKGmAp8Q-xLm7wLhya6q1taeltUnjPKU7i5yG-M";
@@ -439,7 +440,7 @@ const PDFSlicer = () => {
     <div className="flex flex-col space-y-8 w-full max-w-4xl mx-auto animate-fade-in">
       <div className="flex justify-between items-center mb-6">
         <h2 className="text-2xl font-semibold">{getStepTitle(currentStep)}</h2>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center">
           {[1, 2, 3].map((step) => (
             <div
               key={step}
@@ -614,52 +615,58 @@ const PDFSlicer = () => {
       {currentStep === 3 && (
         <>
           {contentPdfUrl && questionsPdfUrl ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-fade-up">
-              <Card className="overflow-hidden card-hover">
-                <CardContent className="p-5">
-                  <div className="flex flex-col space-y-4">
-                    <div className="flex justify-between items-center">
-                      <h3 className="font-medium">
-                        Conteúdo - {fileNameWithoutExt}
-                      </h3>
-                      <div className="flex items-center space-x-2">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() =>
-                            handleDownload(contentPdfUrl, "content")
-                          }
-                        >
-                          <Download size={18} />
-                        </Button>
+            <div className="space-y-6 animate-fade-up">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <Card className="overflow-hidden card-hover">
+                  <CardContent className="p-5">
+                    <div className="flex flex-col space-y-4">
+                      <div className="flex justify-between items-center">
+                        <h3 className="font-medium">
+                          Conteúdo - {fileNameWithoutExt}
+                        </h3>
+                        <div className="flex items-center space-x-2">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() =>
+                              handleDownload(contentPdfUrl, "content")
+                            }
+                          >
+                            <Download size={18} />
+                          </Button>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                </CardContent>
-              </Card>
+                  </CardContent>
+                </Card>
 
-              <Card className="overflow-hidden card-hover">
-                <CardContent className="p-5">
-                  <div className="flex flex-col space-y-4">
-                    <div className="flex justify-between items-center">
-                      <h3 className="font-medium">
-                        Perguntas - {fileNameWithoutExt}
-                      </h3>
-                      <div className="flex items-center space-x-2">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() =>
-                            handleDownload(questionsPdfUrl, "questions")
-                          }
-                        >
-                          <Download size={18} />
-                        </Button>
+                <Card className="overflow-hidden card-hover">
+                  <CardContent className="p-5">
+                    <div className="flex flex-col space-y-4">
+                      <div className="flex justify-between items-center">
+                        <h3 className="font-medium">
+                          Perguntas - {fileNameWithoutExt}
+                        </h3>
+                        <div className="flex items-center space-x-2">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() =>
+                              handleDownload(questionsPdfUrl, "questions")
+                            }
+                          >
+                            <Download size={18} />
+                          </Button>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                </CardContent>
-              </Card>
+                  </CardContent>
+                </Card>
+              </div>
+
+              <div className="mt-8">
+                <Quiz pdfUrl={questionsPdfUrl} />
+              </div>
             </div>
           ) : (
             <div className="flex flex-col items-center justify-center p-10 border-2 border-dashed rounded-xl border-muted-foreground/20 animate-fade-up">
