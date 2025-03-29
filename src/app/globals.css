@@ -1,0 +1,9 @@
+:root {
+  --primary: 354 89% 41%;
+  --primary-foreground: 0 0% 100%;
+}
+
+.dark {
+  --primary: 354 89% 41%;
+  --primary-foreground: 0 0% 100%;
+}

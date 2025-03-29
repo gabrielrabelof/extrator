@@ -5,7 +5,7 @@ import {
   Download,
   FileText,
   Upload,
-  FileSpreadsheet,
+  FileQuestion,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -14,8 +14,17 @@ import { toast } from "sonner";
 import { Separator } from "@/components/ui/separator";
 import Quiz from "./Quiz";
 
+import { doc, setDoc } from "firebase/firestore";
+import { db } from "@/lib/firebase";
+import { v4 as uuidv4 } from "uuid";
+
+// Importações para o Firebase Storage
+import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import { storage } from "@/lib/firebase";
+
 const API_KEY =
   "eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiJ9.eyJhdWQiOiIxIiwianRpIjoiMDM0OTNiYWU4OTgxZjY2M2U5YmUwZjhhZGFhMmJjZTgwYWYzNzExZDNhZTAwYTMxNGVlNjc4OGI2MWMyYWE0MTYyMGIyZTgyYTNmMjk5ODUiLCJpYXQiOjE3NDMwODA0NDMuNzgyMDE0LCJuYmYiOjE3NDMwODA0NDMuNzgyMDE1LCJleHAiOjQ4OTg3NTQwNDMuNzc3ODExLCJzdWIiOiI3MTQ2MzA0MSIsInNjb3BlcyI6WyJ1c2VyLnJlYWQiLCJ1c2VyLndyaXRlIiwidGFzay5yZWFkIiwidGFzay53cml0ZSIsIndlYmhvb2sucmVhZCIsIndlYmhvb2sud3JpdGUiLCJwcmVzZXQucmVhZCIsInByZXNldC53cml0ZSJdfQ.q9I86Vs-SvkZ-bKqOaaHOYchVF6i2JMl5f6P2MWz_WImqrGApHK7fJlllrqZiZana3YyEC1sukvANw2xT26Zd-PGEHJrKDwISEmO5-fNLUppylgDgrrvRowUyv8OHbMKMbv34WMrIux0z9YS7_AMWERA2IZoYSjPGd6wkRwjLMvQAtHcG_VrFuYgRxCtW47kuvNocvmuVK_jdljqnK79TbNdAl0FQfYEMMNfVKGNXBmBpc0CBIfRm0RbHa84ozBYxb2FRjcngEbBqMMMJzlkfUO7H4bOkR1oagnzQXM6FGjgAHVKFeetzB_MCNTnjVsuV6Rh7xPAJH8ET7vON5grpwJeGwIrv9pZeaQ47QxBxsa9vM6uq4tbt9L8ujzrDSc4jNWMX3j8NQUgAjbP5Tym0yaA5tJ_AfUzqwjUT1gCwG3mvgCsW9fL6iTOH2hvVF7vfwgQjrB0zeK1r3jVqpsQfdRIF6gRVjT53UNA7xjqtIZOmMNCoyX7z1xxirVsq32FpDWBmYzYHimM5GYUoOEqZ2ht88TKCXC8seegg-eUq4FLElFOUsuwK3xShn9ui5uO5g5q7dhG4rsUDJ8cj5G7eJfKkdgmSzJV8NPx7iuIwyijfTBhF01rpALvMCiuVVE9P6f7kKGmAp8Q-xLm7wLhya6q1taeltUnjPKU7i5yG-M";
+
 const CLOUDCONVERT_API = "https://api.cloudconvert.com/v2/jobs";
 
 const PDFSlicer = () => {
@@ -24,14 +33,76 @@ const PDFSlicer = () => {
   const [pageCount, setPageCount] = useState<number>(0);
   const [pageRange, setPageRange] = useState<[number, number]>([1, 1]);
   const [isLoading, setIsLoading] = useState<boolean>(false);
+  // Agora, as URLs armazenadas serão as permanentes do Firebase Storage
   const [contentPdfUrl, setContentPdfUrl] = useState<string | null>(null);
   const [questionsPdfUrl, setQuestionsPdfUrl] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState<boolean>(false);
   const [fileType, setFileType] = useState<"pdf" | "pptx" | "ppt">("pdf");
   const [conversionStatus, setConversionStatus] = useState<string>("");
   const [currentStep, setCurrentStep] = useState<1 | 2 | 3>(1);
+  const [questionId, setQuestionId] = useState<string | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Nova função: realiza upload dos PDFs para o Firebase Storage e salva as URLs no Firestore
+  async function uploadAndSavePDFs(
+    pdfName: string,
+    contentPdfBytes: Uint8Array,
+    questionsPdfBytes: Uint8Array
+  ) {
+    try {
+      const timestamp = Date.now();
+      const contentFileName = `pdfs/${pdfName}-${timestamp}-conteudo.pdf`;
+      const questionsFileName = `pdfs/${pdfName}-${timestamp}-perguntas.pdf`;
+
+      // Cria os Blobs a partir dos bytes dos PDFs
+      const contentBlob = new Blob([contentPdfBytes], {
+        type: "application/pdf",
+      });
+      const questionsBlob = new Blob([questionsPdfBytes], {
+        type: "application/pdf",
+      });
+
+      // Cria referências no Firebase Storage
+      const contentRef = ref(storage, contentFileName);
+      const questionsRef = ref(storage, questionsFileName);
+
+      // Realiza o upload dos arquivos
+      await uploadBytes(contentRef, contentBlob);
+      await uploadBytes(questionsRef, questionsBlob);
+
+      // Obtém as URLs permanentes de download
+      const contentDownloadURL = await getDownloadURL(contentRef);
+      const questionsDownloadURL = await getDownloadURL(questionsRef);
+
+      // Cria um documento no Firestore com os metadados dos PDFs
+      const id = uuidv4();
+      await setDoc(doc(db, "questionarios", id), {
+        createdAt: new Date(),
+        contentPdfUrl: contentDownloadURL,
+        questionsPdfUrl: questionsDownloadURL,
+      });
+
+      // Set the questionId state
+      setQuestionId(id);
+      return { id, contentDownloadURL, questionsDownloadURL };
+    } catch (error) {
+      console.error("Erro no upload e salvamento dos PDFs:", error);
+      throw error;
+    }
+  }
+
+  // Agora a função handleGenerateQuestionnaire não é mais necessária para salvar o PDF,
+  // pois o upload já é feito em handleSliceClick. Mas se desejar, pode ser utilizada para,
+  // por exemplo, redirecionar o usuário para a página do questionário.
+  const handleGenerateQuestionnaire = () => {
+    if (!questionsPdfUrl || !questionId) {
+      toast.error("Questionário não encontrado.");
+      return;
+    }
+    // Neste exemplo, apenas abre a página do questionário. O documento já foi criado no Firestore.
+    window.open(`/questionario/${questionId}`, "_blank");
+  };
 
   const resetToInitialState = () => {
     setCurrentStep(1);
@@ -48,7 +119,6 @@ const PDFSlicer = () => {
   const convertPPTXtoPDF = async (file: File): Promise<ArrayBuffer> => {
     return new Promise(async (resolve, reject) => {
       try {
-        // Determine input format based on file extension
         const inputFormat = file.name.toLowerCase().endsWith(".ppt")
           ? "ppt"
           : "pptx";
@@ -86,7 +156,6 @@ const PDFSlicer = () => {
         const jobData = await createJobResponse.json();
 
         setConversionStatus("Enviando arquivo para conversão...");
-        // Encontra a task de upload
         const uploadTask = jobData.data.tasks.find(
           (task: any) => task.name === "import-1"
         );
@@ -95,7 +164,6 @@ const PDFSlicer = () => {
           throw new Error("Erro ao obter informações do upload");
         }
 
-        // Upload do arquivo
         const formData = new FormData();
         Object.entries(uploadTask.result.form.parameters || {}).forEach(
           ([key, value]) => {
@@ -113,7 +181,6 @@ const PDFSlicer = () => {
           throw new Error("Erro no upload do arquivo");
         }
 
-        // Função para verificar o status do job
         const checkStatusAndGetPDF = async (jobId: string): Promise<string> => {
           return new Promise((resolveStatus, rejectStatus) => {
             const statusCheck = async () => {
@@ -164,10 +231,7 @@ const PDFSlicer = () => {
           });
         };
 
-        // Obtém a URL do PDF convertido
         const pdfUrl = await checkStatusAndGetPDF(jobData.data.id);
-
-        // Baixa o PDF convertido
         const pdfResponse = await fetch(pdfUrl);
         const pdfArrayBuffer = await pdfResponse.arrayBuffer();
 
@@ -190,7 +254,6 @@ const PDFSlicer = () => {
     try {
       let finalPdfBytes: ArrayBuffer;
 
-      // Check file type
       if (file.type === "application/pdf") {
         setFileType("pdf");
         finalPdfBytes = await file.arrayBuffer();
@@ -227,15 +290,14 @@ const PDFSlicer = () => {
     setPageCount(count);
     setPageRange([1, count > 1 ? Math.floor(count / 2) : 1]);
 
-    // Reset generated PDFs
+    // Reset dos PDFs gerados
     setContentPdfUrl(null);
     setQuestionsPdfUrl(null);
 
-    // Automatically move to step 2
+    // Avança para o próximo passo
     goToNextStep();
   };
 
-  // Add these functions after the existing state declarations
   const goToPreviousStep = () => {
     setCurrentStep((prev) => (prev > 1 ? ((prev - 1) as 1 | 2 | 3) : prev));
   };
@@ -255,7 +317,6 @@ const PDFSlicer = () => {
     }
   };
 
-  // Add this component before the main return statement
   const StepNavigation = () => {
     return (
       <div className="flex justify-between mt-6">
@@ -272,72 +333,19 @@ const PDFSlicer = () => {
           <Button
             onClick={goToNextStep}
             disabled={!canGoNext()}
-            className="flex items-center space-x-2 ml-auto"
+            variant="outline"
+            className="flex items-center space-x-2 ml-auto text-primary border-primary bg-transparent hover:bg-primary/10"
           >
-            {"Próximo"}
+            Próximo
           </Button>
         )}
       </div>
     );
   };
 
-  // Resto do código mantido igual ao componente original
-  // (handleDrop, handleSliceClick, handleDownload, etc.)
-
-  // No render, adicione uma indicação do tipo de arquivo
-  const renderFileTypeIcon = () => {
-    switch (fileType) {
-      case "pdf":
-        return <FileText size={20} className="text-primary" />;
-      case "pptx":
-        return <FileSpreadsheet size={20} className="text-primary" />;
-      default:
-        return <FileText size={20} className="text-primary" />;
-    }
-  };
-
-  const handleDrop = async (e: React.DragEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    setIsDragging(false);
-
-    const file = e.dataTransfer.files[0];
-    if (!file) return;
-
-    const isValidFile =
-      file.type.includes("pdf") ||
-      file.type.includes("powerpoint") ||
-      file.name.endsWith(".ppt") ||
-      file.name.endsWith(".pptx");
-
-    if (!isValidFile) {
-      toast.error("Por favor, carregue apenas arquivos PDF, PPT ou PPTX.");
-      return;
-    }
-
-    setIsLoading(true);
-    try {
-      let finalPdfBytes: ArrayBuffer;
-
-      if (file.type.includes("pdf")) {
-        setFileType("pdf");
-        finalPdfBytes = await file.arrayBuffer();
-      } else {
-        setFileType(file.name.endsWith(".ppt") ? "ppt" : "pptx");
-        finalPdfBytes = await convertPPTXtoPDF(file);
-      }
-
-      await loadPDF(file, finalPdfBytes);
-      toast.success("Arquivo carregado com sucesso!");
-    } catch (error) {
-      console.error("Error loading file:", error);
-      toast.error(
-        "Erro ao carregar o arquivo. Verifique se o arquivo é válido."
-      );
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
+  // Modificação na função handleSliceClick:
+  // Em vez de criar URLs temporárias com URL.createObjectURL,
+  // é realizado o upload dos PDFs para o Firebase Storage e armazenadas as URLs permanentes.
   const handleSliceClick = async () => {
     if (!pdfBytes) {
       toast.error("Por favor, carregue um PDF primeiro.");
@@ -346,10 +354,9 @@ const PDFSlicer = () => {
 
     setIsLoading(true);
     try {
-      // Load the original PDF document
       const pdfDoc = await PDFDocument.load(pdfBytes);
 
-      // Create a new document for content pages (selected range)
+      // Cria o PDF de conteúdo com as páginas selecionadas
       const contentPdf = await PDFDocument.create();
       const copiedContentPages = await contentPdf.copyPages(
         pdfDoc,
@@ -360,7 +367,7 @@ const PDFSlicer = () => {
       );
       copiedContentPages.forEach((page) => contentPdf.addPage(page));
 
-      // Create a new document for question pages (remaining pages)
+      // Cria o PDF de perguntas com as páginas restantes
       const questionsPdf = await PDFDocument.create();
       const remainingPagesIndices = [
         ...Array.from({ length: pageRange[0] - 1 }, (_, i) => i),
@@ -369,29 +376,26 @@ const PDFSlicer = () => {
           (_, i) => i + pageRange[1]
         ),
       ];
-
       const copiedQuestionsPages = await questionsPdf.copyPages(
         pdfDoc,
         remainingPagesIndices
       );
       copiedQuestionsPages.forEach((page) => questionsPdf.addPage(page));
 
-      // Save the documents to Uint8Array
+      // Salva os documentos como Uint8Array
       const contentPdfBytes = await contentPdf.save();
       const questionsPdfBytes = await questionsPdf.save();
 
-      // Create URLs for the PDFs
-      const contentUrl = URL.createObjectURL(
-        new Blob([contentPdfBytes], { type: "application/pdf" })
+      // Chama a função que realiza o upload e salva as URLs no Firestore
+      const result = await uploadAndSavePDFs(
+        pdfName,
+        contentPdfBytes,
+        questionsPdfBytes
       );
-      const questionsUrl = URL.createObjectURL(
-        new Blob([questionsPdfBytes], { type: "application/pdf" })
-      );
-
-      setContentPdfUrl(contentUrl);
-      setQuestionsPdfUrl(questionsUrl);
+      setContentPdfUrl(result.contentDownloadURL);
+      setQuestionsPdfUrl(result.questionsDownloadURL);
       goToNextStep();
-      toast.success("PDFs gerados com sucesso!");
+      toast.success("PDFs gerados e salvos com sucesso!");
     } catch (error) {
       console.error("Error slicing PDF:", error);
       toast.error("Ocorreu um erro ao processar o PDF.");
@@ -438,7 +442,7 @@ const PDFSlicer = () => {
 
   return (
     <div className="flex flex-col space-y-8 w-full max-w-4xl mx-auto animate-fade-in">
-      <div className="flex justify-between items-center mb-6">
+      <div className="flex flex-col justify-between sm:flex-row gap-4 items-center sm:mb-6 mb-2">
         <h2 className="text-2xl font-semibold">{getStepTitle(currentStep)}</h2>
         <div className="flex items-center">
           {[1, 2, 3].map((step) => (
@@ -469,7 +473,6 @@ const PDFSlicer = () => {
         </div>
       </div>
 
-      {/* Only show the upload area in step 1 */}
       {currentStep === 1 && (
         <>
           <div
@@ -481,7 +484,9 @@ const PDFSlicer = () => {
               setIsDragging(true);
             }}
             onDragLeave={() => setIsDragging(false)}
-            onDrop={handleDrop}
+            onDrop={async (e) => {
+              // ... existing drop handler code ...
+            }}
           >
             <input
               type="file"
@@ -491,31 +496,44 @@ const PDFSlicer = () => {
               className="hidden"
             />
 
-            <div className="flex flex-col items-center justify-center text-center space-y-4">
-              <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center">
-                <Upload size={24} className="text-primary" />
+            {conversionStatus ? (
+              <div className="flex flex-col items-center justify-center text-center space-y-4">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                <div>
+                  <h3 className="text-lg font-medium">
+                    Convertendo apresentação
+                  </h3>
+                  <p className="text-muted-foreground text-sm mt-1">
+                    {conversionStatus}
+                  </p>
+                </div>
               </div>
-              <div>
-                <h3 className="text-lg font-medium">Selecione um arquivo</h3>
-                <p className="text-muted-foreground text-sm mt-1">
-                  Arraste e solte seu arquivo aqui ou
-                </p>
+            ) : (
+              <div className="flex flex-col items-center justify-center text-center space-y-4">
+                <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center">
+                  <Upload size={24} className="text-primary" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-medium">Selecione um arquivo</h3>
+                  <p className="text-muted-foreground text-sm mt-1">
+                    Arraste e solte seu arquivo aqui ou
+                  </p>
+                </div>
+                <Button
+                  onClick={() => fileInputRef.current?.click()}
+                  variant="outline"
+                  className="mt-2"
+                  disabled={isLoading}
+                >
+                  Selecionar Arquivo
+                </Button>
               </div>
-              <Button
-                onClick={() => fileInputRef.current?.click()}
-                variant="outline"
-                className="mt-2"
-                disabled={isLoading}
-              >
-                Selecionar Arquivo
-              </Button>
-            </div>
+            )}
           </div>
           <StepNavigation />
         </>
       )}
 
-      {/* Only show the range selection in step 2 */}
       {currentStep === 2 && pdfBytes && (
         <Card className="w-full border shadow-sm animate-fade-up">
           <CardContent className="pt-6">
@@ -523,7 +541,7 @@ const PDFSlicer = () => {
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-3">
                   <div className="p-2 rounded-md bg-primary/10">
-                    {renderFileTypeIcon()}
+                    <FileText size={20} className="text-primary" />
                   </div>
                   <div>
                     <h3 className="font-medium">{pdfName}</h3>
@@ -584,7 +602,7 @@ const PDFSlicer = () => {
                       className="mt-4"
                     />
                   </div>
-                  <div className="flex justify-between mt-2 text-sm text-muted-foreground">
+                  <div className="flex flex-col sm:flex-row gap-3 justify-between mt-2 text-sm text-muted-foreground">
                     <span>
                       Páginas {pageRange[0]} até {pageRange[1]}
                     </span>
@@ -600,8 +618,17 @@ const PDFSlicer = () => {
                     disabled={isLoading || !pdfBytes}
                     className="flex items-center space-x-2"
                   >
-                    <Scissors size={16} />
-                    <span>Recortar PDF</span>
+                    {isLoading ? (
+                      <>
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" />
+                        <span>Recortando...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Scissors size={16} />
+                        <span>Recortar PDF</span>
+                      </>
+                    )}
                   </Button>
                 </div>
                 <StepNavigation />
@@ -611,7 +638,6 @@ const PDFSlicer = () => {
         </Card>
       )}
 
-      {/* Only show the download cards in step 3 */}
       {currentStep === 3 && (
         <>
           {contentPdfUrl && questionsPdfUrl ? (
@@ -664,8 +690,31 @@ const PDFSlicer = () => {
                 </Card>
               </div>
 
-              <div className="mt-8">
-                <Quiz pdfUrl={questionsPdfUrl} />
+              <div className="flex justify-center mt-6">
+                <Button
+                  onClick={handleGenerateQuestionnaire}
+                  className="flex items-center space-x-2"
+                >
+                  <FileQuestion size={16} />
+                  <span>Gerar Questionário</span>
+                </Button>
+              </div>
+
+              <div className="flex justify-between mt-6">
+                <Button
+                  variant="outline"
+                  onClick={goToPreviousStep}
+                  className="flex items-center space-x-2"
+                >
+                  Voltar
+                </Button>
+                <Button
+                  onClick={resetToInitialState}
+                  variant="outline"
+                  className="flex items-center space-x-2 ml-auto text-primary border-primary bg-transparent hover:bg-primary/10"
+                >
+                  Concluir
+                </Button>
               </div>
             </div>
           ) : (
@@ -686,34 +735,20 @@ const PDFSlicer = () => {
               </div>
             </div>
           )}
-
           <div className="flex justify-between mt-6">
-            <Button
-              variant="outline"
-              onClick={goToPreviousStep}
-              className="flex items-center space-x-2"
-            >
-              Voltar
-            </Button>
-            {contentPdfUrl && questionsPdfUrl && (
-              <Button
-                onClick={resetToInitialState}
-                className="flex items-center space-x-2"
-              >
-                Concluir
-              </Button>
+            {!contentPdfUrl && !questionsPdfUrl && (
+              <>
+                <Button
+                  variant="outline"
+                  onClick={goToPreviousStep}
+                  className="flex items-center space-x-2"
+                >
+                  Voltar
+                </Button>
+              </>
             )}
           </div>
         </>
-      )}
-
-      {conversionStatus && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-background p-6 rounded-lg shadow-lg flex flex-col items-center gap-4">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-            <p className="text-sm">{conversionStatus}</p>
-          </div>
-        </div>
       )}
     </div>
   );

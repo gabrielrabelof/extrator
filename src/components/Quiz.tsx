@@ -5,6 +5,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { pdfjsLib } from "@/lib/pdf";
+import { Copy } from "lucide-react";
 
 interface Alternative {
   letra: string;
@@ -17,13 +18,44 @@ interface Question {
 }
 
 interface QuizProps {
-  pdfUrl: string | null;
+  pdfUrl: string;
+  onRespostaChange: (id: string, resposta: string) => void;
 }
 
-const Quiz: React.FC<QuizProps> = ({ pdfUrl }) => {
+const Quiz: React.FC<QuizProps> = ({ pdfUrl, onRespostaChange }) => {
   const [questions, setQuestions] = useState<Question[]>([]);
   const [answers, setAnswers] = useState<{ [key: number]: string }>({});
   const [isLoading, setIsLoading] = useState(false);
+
+  const localStorageKey = `quiz-answers-${btoa(encodeURIComponent(pdfUrl))}`; // Chave única baseada no PDF
+
+  // Carregar respostas salvas do localStorage
+  useEffect(() => {
+    if (pdfUrl) {
+      const saved = localStorage.getItem(localStorageKey);
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved);
+          setAnswers(parsed);
+        } catch {
+          console.warn("Respostas salvas corrompidas");
+          localStorage.removeItem(localStorageKey); // Remove invalid data
+        }
+      } else {
+        setAnswers({}); // Reset answers if no saved data exists
+      }
+    }
+
+    return () => {
+      // Optional: Clear answers when component unmounts
+      setAnswers({});
+    };
+  }, [pdfUrl]);
+
+  // Salvar respostas no localStorage sempre que mudar
+  useEffect(() => {
+    localStorage.setItem(localStorageKey, JSON.stringify(answers));
+  }, [answers]);
 
   useEffect(() => {
     if (pdfUrl) {
@@ -59,14 +91,13 @@ const Quiz: React.FC<QuizProps> = ({ pdfUrl }) => {
   };
 
   const extractQuestions = (text: string): Question[] => {
-    // Remove common headers and unwanted text
     const cleanText = text
       .replace(
         /ATIVIDADE\s+PRÁTICA\s+REUNIÃO\s+DE\s+JOVENS\s+ICM\s+PORTO\s+DA\s+ALDEIA/gi,
         ""
       )
       .replace(/página\s+\d+\s+de\s+\d+/gi, "")
-      .replace(/\[.*?\]/g, "") // Remove content in square brackets
+      .replace(/\[.*?\]/g, "")
       .trim();
 
     const questionRegex = /(\d+\.\s*[^?:]+[?:][\s\S]*?)(?=\d+\.|$)/g;
@@ -76,7 +107,6 @@ const Quiz: React.FC<QuizProps> = ({ pdfUrl }) => {
 
     if (matches) {
       matches.forEach((block) => {
-        // Clean up the question block
         const cleanBlock = block.replace(/\s+/g, " ").trim();
 
         const indexInterrogacao = cleanBlock.indexOf("?");
@@ -94,18 +124,15 @@ const Quiz: React.FC<QuizProps> = ({ pdfUrl }) => {
         const questionText = cleanBlock.substring(0, splitIndex + 1).trim();
         const alternativesText = cleanBlock.substring(splitIndex + 1).trim();
 
-        // Skip if question is empty or already seen
         if (!questionText || seenQuestions.has(questionText)) return;
         seenQuestions.add(questionText);
 
-        // Improved regex for alternatives that handles multiple lines
         const altRegex = /([a-d])\)\s*((?:(?![a-d]\))[\s\S])*)/g;
         const alternatives: Alternative[] = [];
         let altMatch;
 
         while ((altMatch = altRegex.exec(alternativesText)) !== null) {
           const altText = altMatch[2].trim();
-          // Skip empty alternatives or ones that look like headers
           if (altText && !altText.match(/ATIVIDADE|REUNIÃO|ICM/i)) {
             alternatives.push({
               letra: altMatch[1],
@@ -114,7 +141,6 @@ const Quiz: React.FC<QuizProps> = ({ pdfUrl }) => {
           }
         }
 
-        // Only add questions with valid alternatives
         if (alternatives.length > 0) {
           questionsArr.push({
             pergunta: questionText,
@@ -132,6 +158,7 @@ const Quiz: React.FC<QuizProps> = ({ pdfUrl }) => {
       ...prev,
       [questionIndex]: value,
     }));
+    onRespostaChange(String(questionIndex), value); // atualiza também no componente pai
   };
 
   if (isLoading) {
@@ -144,7 +171,21 @@ const Quiz: React.FC<QuizProps> = ({ pdfUrl }) => {
 
   return (
     <div className="w-full space-y-6">
-      <h2 className="text-2xl font-semibold mb-6">Questionário</h2>
+      <div className="flex justify-between items-center mb-6">
+        <h2 className="text-2xl font-semibold">Questionário</h2>
+        <Button
+          variant="outline"
+          size="sm"
+          className="flex items-center gap-2"
+          onClick={() => {
+            navigator.clipboard.writeText(window.location.href);
+            toast.success("Link copiado para a área de transferência!");
+          }}
+        >
+          <Copy size={16} />
+          <span>Copiar Link</span>
+        </Button>
+      </div>
 
       {questions.length === 0 ? (
         <Card>
@@ -161,7 +202,7 @@ const Quiz: React.FC<QuizProps> = ({ pdfUrl }) => {
                   <h3 className="font-medium">{question.pergunta}</h3>
 
                   <RadioGroup
-                    value={answers[index]}
+                    value={answers[index] || ""}
                     onValueChange={(value) => handleAnswerChange(index, value)}
                   >
                     {question.alternativas.map((alt) => (
@@ -187,10 +228,10 @@ const Quiz: React.FC<QuizProps> = ({ pdfUrl }) => {
           <div className="flex justify-end">
             <Button
               onClick={() => {
-                const totalQuestions = questions.length;
-                const answeredQuestions = Object.keys(answers).length;
+                const total = questions.length;
+                const answered = Object.keys(answers).length;
                 toast.success(
-                  `Respostas salvas! (${answeredQuestions}/${totalQuestions} respondidas)`
+                  `Respostas salvas! (${answered}/${total} respondidas)`
                 );
               }}
             >
