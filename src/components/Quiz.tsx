@@ -5,7 +5,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { pdfjsLib } from "@/lib/pdf";
-import { Copy } from "lucide-react";
+import { Copy, FileText, ArrowUp } from "lucide-react";
 
 interface Alternative {
   letra: string;
@@ -26,6 +26,7 @@ const Quiz: React.FC<QuizProps> = ({ pdfUrl, onRespostaChange }) => {
   const [questions, setQuestions] = useState<Question[]>([]);
   const [answers, setAnswers] = useState<{ [key: number]: string }>({});
   const [isLoading, setIsLoading] = useState(false);
+  const [showBackToTop, setShowBackToTop] = useState(false);
 
   const localStorageKey = `quiz-answers-${btoa(encodeURIComponent(pdfUrl))}`; // Chave única baseada no PDF
 
@@ -161,6 +162,19 @@ const Quiz: React.FC<QuizProps> = ({ pdfUrl, onRespostaChange }) => {
     onRespostaChange(String(questionIndex), value); // atualiza também no componente pai
   };
 
+  useEffect(() => {
+    const handleScroll = () => {
+      setShowBackToTop(window.scrollY > 400);
+    };
+
+    window.addEventListener("scroll", handleScroll);
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
+
+  const scrollToTop = () => {
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center p-8">
@@ -173,18 +187,29 @@ const Quiz: React.FC<QuizProps> = ({ pdfUrl, onRespostaChange }) => {
     <div className="w-full space-y-6">
       <div className="flex justify-between items-center mb-6">
         <h2 className="text-2xl font-semibold">Questionário</h2>
-        <Button
-          variant="outline"
-          size="sm"
-          className="flex items-center gap-2"
-          onClick={() => {
-            navigator.clipboard.writeText(window.location.href);
-            toast.success("Link copiado para a área de transferência!");
-          }}
-        >
-          <Copy size={16} />
-          <span>Copiar Link</span>
-        </Button>
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            className="flex items-center gap-2"
+            onClick={() => window.open(pdfUrl, "_blank")}
+          >
+            <FileText size={16} />
+            <span>Ver Gabarito</span>
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="flex items-center gap-2"
+            onClick={() => {
+              navigator.clipboard.writeText(window.location.href);
+              toast.success("Link copiado para a área de transferência!");
+            }}
+          >
+            <Copy size={16} />
+            <span>Copiar Link</span>
+          </Button>
+        </div>
       </div>
 
       {questions.length === 0 ? (
@@ -239,6 +264,18 @@ const Quiz: React.FC<QuizProps> = ({ pdfUrl, onRespostaChange }) => {
             </Button>
           </div>
         </>
+      )}
+
+      {showBackToTop && (
+        <Button
+          variant="outline"
+          size="icon"
+          className="fixed bottom-4 right-4 rounded-full w-10 h-10 shadow-md hover:shadow-lg transition-all"
+          onClick={scrollToTop}
+          aria-label="Voltar ao topo"
+        >
+          <ArrowUp size={20} />
+        </Button>
       )}
     </div>
   );
