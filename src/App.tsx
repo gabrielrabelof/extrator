@@ -18,7 +18,6 @@ const App = () => (
         <Routes>
           <Route path="/questionario/:id" element={<QuestionarioPage />} />
           <Route path="/" element={<Index />} />
-          <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>
     </TooltipProvider>
