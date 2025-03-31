@@ -17,7 +17,10 @@ const App = () => (
       <Sonner position="top-center" />
       <HashRouter>
         <Routes>
-          <Route path="/questionario/:id" element={<QuestionarioPage />} />
+          <Route
+            path="/extrator/questionario/:id"
+            element={<QuestionarioPage />}
+          />
           <Route path="/" element={<Index />} />
         </Routes>
       </HashRouter>
