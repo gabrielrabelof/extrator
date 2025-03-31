@@ -5,7 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { HashRouter, Routes, Route } from "react-router-dom";
 
 import Index from "./pages/Index";
-import QuestionarioPage from "./pages/questionario/[id]";
+import QuestionarioPage from "./pages/questionario/QuestionarioPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -19,6 +19,7 @@ const App = () => (
         <Routes>
           <Route path="/questionario/:id" element={<QuestionarioPage />} />
           <Route path="/" element={<Index />} />
+          <Route path="*" element={<NotFound />} />
         </Routes>
       </HashRouter>
     </TooltipProvider>
