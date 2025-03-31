@@ -101,7 +101,7 @@ const PDFSlicer = () => {
       return;
     }
     // Neste exemplo, apenas abre a página do questionário. O documento já foi criado no Firestore.
-    window.open(`/questionario/${questionId}`, "_blank");
+    window.open(`extrator/#/questionario/${questionId}`, "_blank");
   };
 
   const resetToInitialState = () => {

@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { pdfjsLib } from "@/lib/pdf";
 import { Copy, FileText, ArrowUp } from "lucide-react";
+import PdfViewerModal from "./PdfViewerModal";
 
 interface Alternative {
   letra: string;
@@ -27,6 +28,7 @@ const Quiz: React.FC<QuizProps> = ({ pdfUrl, onRespostaChange }) => {
   const [answers, setAnswers] = useState<{ [key: number]: string }>({});
   const [isLoading, setIsLoading] = useState(false);
   const [showBackToTop, setShowBackToTop] = useState(false);
+  const [isPdfModalOpen, setIsPdfModalOpen] = useState(false);
 
   const localStorageKey = `quiz-answers-${btoa(encodeURIComponent(pdfUrl))}`; // Chave única baseada no PDF
 
@@ -192,7 +194,7 @@ const Quiz: React.FC<QuizProps> = ({ pdfUrl, onRespostaChange }) => {
             variant="outline"
             size="sm"
             className="flex items-center gap-2"
-            onClick={() => window.open(pdfUrl, "_blank")}
+            onClick={() => setIsPdfModalOpen(true)}
           >
             <FileText size={16} />
             <span>Ver Gabarito</span>
@@ -277,6 +279,12 @@ const Quiz: React.FC<QuizProps> = ({ pdfUrl, onRespostaChange }) => {
           <ArrowUp size={20} />
         </Button>
       )}
+
+      <PdfViewerModal
+        isOpen={isPdfModalOpen}
+        onClose={() => setIsPdfModalOpen(false)}
+        pdfUrl={pdfUrl}
+      />
     </div>
   );
 };
