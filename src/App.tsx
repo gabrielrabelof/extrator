@@ -15,7 +15,7 @@ const App = () => (
     <TooltipProvider>
       <Toaster />
       <Sonner position="top-center" />
-      <HashRouter basename="/extrator">
+      <HashRouter>
         <Routes>
           <Route path="/questionario/:id" element={<QuestionarioPage />} />
           <Route path="/" element={<Index />} />
