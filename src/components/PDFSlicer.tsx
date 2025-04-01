@@ -405,25 +405,38 @@ const PDFSlicer = () => {
     }
   };
 
-  const handleDownload = (
+  const handleDownload = async (
     url: string | null,
     type: "content" | "questions"
   ) => {
     if (!url) return;
 
-    const link = document.createElement("a");
-    link.href = url;
+    try {
+      const response = await fetch(url);
+      const blob = await response.blob();
+      const downloadUrl = window.URL.createObjectURL(blob);
 
-    const baseName = pdfName.replace(/\.pdf$/i, "");
-    const fileName =
-      type === "content"
-        ? `Conteúdo - ${baseName}.pdf`
-        : `Perguntas - ${baseName}.pdf`;
+      const link = document.createElement("a");
+      link.href = downloadUrl;
 
-    link.download = fileName;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+      const baseName = pdfName.replace(/\.pdf$/i, "");
+      const fileName =
+        type === "content"
+          ? `Conteúdo - ${baseName}.pdf`
+          : `Perguntas - ${baseName}.pdf`;
+
+      link.download = fileName;
+      link.style.display = "none";
+      document.body.appendChild(link);
+      link.click();
+
+      // Cleanup
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(downloadUrl);
+    } catch (error) {
+      console.error("Error downloading file:", error);
+      toast.error("Erro ao baixar o arquivo");
+    }
   };
 
   const fileNameWithoutExt = pdfName.replace(/\.pdf$/i, "");

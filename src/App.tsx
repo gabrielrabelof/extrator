@@ -9,7 +9,7 @@ import QuestionarioPage from "./pages/QuestionarioPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
-//app1s
+
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
