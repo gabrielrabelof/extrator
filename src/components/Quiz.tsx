@@ -187,7 +187,7 @@ const Quiz: React.FC<QuizProps> = ({ pdfUrl, onRespostaChange }) => {
 
   return (
     <div className="w-full space-y-6">
-      <div className="flex justify-between items-center mb-6">
+      <div className="flex flex-col sm:flex-row justify-between gap-2 sm:items-center mb-6">
         <h2 className="text-2xl font-semibold">Questionário</h2>
         <div className="flex gap-2">
           <Button

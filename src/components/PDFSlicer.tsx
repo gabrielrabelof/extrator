@@ -1,4 +1,4 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { PDFDocument } from "pdf-lib";
 import {
   Scissors,
@@ -13,6 +13,7 @@ import { Slider } from "@/components/ui/slider";
 import { toast } from "sonner";
 import { Separator } from "@/components/ui/separator";
 import Quiz from "./Quiz";
+import PdfViewerModal from "./PdfViewerModal";
 
 import { doc, setDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
@@ -41,6 +42,8 @@ const PDFSlicer = () => {
   const [conversionStatus, setConversionStatus] = useState<string>("");
   const [currentStep, setCurrentStep] = useState<1 | 2 | 3>(1);
   const [questionId, setQuestionId] = useState<string | null>(null);
+  const [isPdfPreviewModalOpen, setIsPdfPreviewModalOpen] = useState(false);
+  const [previewPdfUrl, setPreviewPdfUrl] = useState<string | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -92,16 +95,14 @@ const PDFSlicer = () => {
     }
   }
 
-  // Agora a função handleGenerateQuestionnaire não é mais necessária para salvar o PDF,
-  // pois o upload já é feito em handleSliceClick. Mas se desejar, pode ser utilizada para,
-  // por exemplo, redirecionar o usuário para a página do questionário.
   const handleGenerateQuestionnaire = () => {
     if (!questionsPdfUrl || !questionId) {
       toast.error("Questionário não encontrado.");
       return;
     }
-    // Neste exemplo, apenas abre a página do questionário. O documento já foi criado no Firestore.
-    window.open(`/#/questionario/${questionId}`, "_blank");
+
+    const baseUrl = `${window.location.origin}/extrator/#/questionario/${questionId}`;
+    window.open(baseUrl, "_blank");
   };
 
   const resetToInitialState = () => {
@@ -440,6 +441,29 @@ const PDFSlicer = () => {
     }
   };
 
+  const generatePreviewUrl = () => {
+    if (!pdfBytes) return;
+    const blob = new Blob([pdfBytes], { type: "application/pdf" });
+    const url = URL.createObjectURL(blob);
+
+    return url;
+  };
+
+  const handleOpenPdf = () => {
+    const url = generatePreviewUrl();
+    if (url) {
+      window.open(url, "_blank");
+    }
+  };
+
+  useEffect(() => {
+    return () => {
+      if (previewPdfUrl) {
+        URL.revokeObjectURL(previewPdfUrl);
+      }
+    };
+  }, [previewPdfUrl]);
+
   return (
     <div className="flex flex-col space-y-8 w-full max-w-4xl mx-auto animate-fade-in">
       <div className="flex flex-col justify-between sm:flex-row gap-4 items-center sm:mb-6 mb-2">
@@ -538,18 +562,31 @@ const PDFSlicer = () => {
         <Card className="w-full border shadow-sm animate-fade-up">
           <CardContent className="pt-6">
             <div className="space-y-6">
-              <div className="flex items-center justify-between">
+              <div className="flex flex-col sm:flex-row gap-4 justify-between">
                 <div className="flex items-center space-x-3">
                   <div className="p-2 rounded-md bg-primary/10">
                     <FileText size={20} className="text-primary" />
                   </div>
-                  <div>
-                    <h3 className="font-medium">{pdfName}</h3>
+                  <div className="min-w-0 flex-shrink">
+                    <h3 className="font-medium truncate max-w-[200px] sm:max-w-[300px]">
+                      {pdfName}
+                    </h3>
                     <p className="text-xs text-muted-foreground">
                       {pageCount} páginas
                     </p>
                   </div>
                 </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="flex items-center gap-2"
+                  onClick={() => {
+                    handleOpenPdf();
+                  }}
+                >
+                  <FileText size={16} />
+                  <span>Visualizar PDF</span>
+                </Button>
               </div>
 
               <Separator />
@@ -567,12 +604,21 @@ const PDFSlicer = () => {
                         max={pageCount}
                         value={pageRange[0]}
                         onChange={(e) => {
-                          const value = parseInt(e.target.value);
-                          if (value >= 1 && value <= pageRange[1]) {
+                          const value =
+                            e.target.value === ""
+                              ? 1
+                              : parseInt(e.target.value);
+                          if (
+                            !isNaN(value) &&
+                            value >= 1 &&
+                            value <= pageRange[1]
+                          ) {
                             setPageRange([value, pageRange[1]]);
                           }
                         }}
                         className="w-16 h-8 px-2 text-sm border rounded"
+                        inputMode="numeric"
+                        pattern="\d*"
                       />
                       <span className="text-sm text-muted-foreground">até</span>
                       <input
@@ -750,6 +796,17 @@ const PDFSlicer = () => {
           </div>
         </>
       )}
+      <PdfViewerModal
+        isOpen={isPdfPreviewModalOpen}
+        onClose={() => {
+          setIsPdfPreviewModalOpen(false);
+          if (previewPdfUrl) {
+            URL.revokeObjectURL(previewPdfUrl);
+            setPreviewPdfUrl(null);
+          }
+        }}
+        pdfUrl={previewPdfUrl || ""}
+      />
     </div>
   );
 };
